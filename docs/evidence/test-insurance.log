@@ -1,0 +1,20 @@
+No contracts to compile
+
+Running Mocha tests
+
+
+  Flight delay insurance
+    √ mints policy and reserves coverage and refundable premium (546ms)
+    √ pays qualifying claim once and burns policy (42ms)
+    √ rejects unauthorized reports and direct claim callbacks
+    √ rolls back below-threshold reports and allows later qualifying report
+    √ refunds at expiry once and rejects early expiry
+    √ does not allow LP withdrawal to consume reserved funds
+    √ requires premium authorization atomically
+    √ transfers policy on sale, charges fee and pays the new owner (40ms)
+    √ rejects a cancelled listing
+
+
+  9 passing (824ms)
+
+

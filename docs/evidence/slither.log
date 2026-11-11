@@ -1,0 +1,44 @@
+ERROR:CryticCompile:'npx' returned non-zero exit code 1
+ERROR:CryticCompile:'hardhat' is not recognized as an internal or external command,
+
+stderr: operable program or batch file.
+ERROR:CryticCompile:'npx' returned non-zero exit code 1
+ERROR:CryticCompile:'hardhat' is not recognized as an internal or external command,
+
+stderr: operable program or batch file.
+[High/High] arbitrary-send-erc20: PolicyMarket.buy(uint256,uint256) (project/contracts/PolicyMarket.sol#99-123) uses arbitrary from in transferFrom: policyNFT.transferFrom(l.seller,msg.sender,policyId) (project/contracts/PolicyMarket.sol#120)
+
+[High/High] arbitrary-send-erc20: InsurancePool.fundPolicy(uint256,address,uint256,uint256,uint256) (project/contracts/InsurancePool.sol#82-97) uses arbitrary from in transferFrom: usdc.safeTransferFrom(payer,address(this),premium) (project/contracts/InsurancePool.sol#94)
+
+[Medium/High] incorrect-equality: InsurancePool.deposit(uint256,address) (project/contracts/InsurancePool.sol#54-68) uses a dangerous strict equality:
+	- require(bool,string)(usdc.balanceOf(address(this)) - beforeBalance == amount,unsupported token) (project/contracts/InsurancePool.sol#66)
+
+[Medium/High] incorrect-equality: InsurancePool.fundPolicy(uint256,address,uint256,uint256,uint256) (project/contracts/InsurancePool.sol#82-97) uses a dangerous strict equality:
+	- require(bool,string)(usdc.balanceOf(address(this)) - beforeBalance == premium,unsupported token) (project/contracts/InsurancePool.sol#95)
+
+[Medium/High] incorrect-equality: InsurancePool.withdraw(uint256,address) (project/contracts/InsurancePool.sol#69-81) uses a dangerous strict equality:
+	- amount == 0 (project/contracts/InsurancePool.sol#74)
+
+[Medium/High] incorrect-equality: InsurancePool.deposit(uint256,address) (project/contracts/InsurancePool.sol#54-68) uses a dangerous strict equality:
+	- shares == 0 (project/contracts/InsurancePool.sol#61)
+
+[Informational/High] missing-inheritance: Insurance (project/contracts/Insurance.sol#11-222) should inherit from IInsurance (project/contracts/Oracle.sol#7-9)
+
+[Low/Medium] timestamp: PolicyMarket._validateTradable(uint256) (project/contracts/PolicyMarket.sol#139-142) uses timestamp for comparisons
+	Dangerous comparisons:
+	- policy.status != PolicyNFT.Status.Active || block.timestamp >= policy.departureDate (project/contracts/PolicyMarket.sol#141)
+
+[Low/Medium] timestamp: Insurance.onDelayReported(uint256,uint32) (project/contracts/Insurance.sol#144-167) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < policy.departureDate || block.timestamp > uint256(policy.coverageEnd) + REPORT_GRACE_PERIOD (project/contracts/Insurance.sol#155)
+
+[Low/Medium] timestamp: Insurance.expirePolicy(uint256) (project/contracts/Insurance.sol#177-194) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp <= uint256(policy.coverageEnd) + REPORT_GRACE_PERIOD (project/contracts/Insurance.sol#184)
+
+[Low/Medium] timestamp: Insurance.purchasePolicy(string,uint64,uint64,uint64,uint256,uint256,uint256) (project/contracts/Insurance.sol#84-134) uses timestamp for comparisons
+	Dangerous comparisons:
+	- coverageStart <= block.timestamp || departureDate < coverageStart || departureDate >= coverageEnd (project/contracts/Insurance.sol#100)
+
+Scanned 6 source files with 101 detectors; 11 findings. Output: C:\Users\Al\Documents\ChatGPT\CDS 528 Blockchain\insurance-dapp\docs\evidence\slither.json
+Unreviewed High/Medium: 0; findings are retained even when reviewed.

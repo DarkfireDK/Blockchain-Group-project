@@ -1,0 +1,51 @@
+No contracts to compile
+- Executing C:\Users\Al\Documents\ChatGPT\CDS 528 Blockchain\insurance-dapp\packages\hardhat\deploy\00_deploy_contracts.ts
+Deployer: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+  - Deploying MockUSDC  with tx:
+      0xecee3722e3eb21165d320acfeccbeff421d49f1a8525b4e44a10a18c96d7d78d
+      (type 0x2, maxFeePerGas: 1107421875, maxPriorityFeePerGas: 1000000000)
+    => 0x5fbdb2315678afecb367f032d93f642f64180aa3
+  - Deploying PolicyNFT  with tx:
+      0xa4b4f1dc9ecea1d0934a4d8b5edc0c3a4471dc33130b2946c83e38e1dbb83e91
+      (type 0x2, maxFeePerGas: 971337833, maxPriorityFeePerGas: 232421875)
+    => 0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
+  - Deploying InsurancePool  with tx:
+      0x6cdace7f6e46bd1af6a498265bd9000ccef927e56f733b7af664c7d40bea322a
+      (type 0x2, maxFeePerGas: 856525155, maxPriorityFeePerGas: 203861026)
+    => 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
+  - Deploying Insurance  with tx:
+      0x6e87115aa45f8851e60f1a4e16cde12b49f35867795ac3ccb2fe9a8b768de5f7
+      (type 0x2, maxFeePerGas: 754296073, maxPriorityFeePerGas: 179764538)
+    => 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
+  - Deploying Oracle  with tx:
+      0x336ce961b9eecd3a0193aa7b8bcd87ad308281042b3ed4e7ad0298631ec15510
+      (type 0x2, maxFeePerGas: 665156840, maxPriorityFeePerGas: 158309052)
+    => 0xdc64a140aa3e981100a9beca4e685f962f0cf6c9
+  - Deploying PolicyMarket  with tx:
+      0xd85081d1f3cfb67f83b0e30391c9e036acf6e408149a260bab896c75529d96d0
+      (type 0x2, maxFeePerGas: 583387455, maxPriorityFeePerGas: 139600818)
+    => 0x5fc8d32690cc91d4c39d9d3abcbd16989f875707
+  - Broadcasting tx:
+      0x68b4458d1f4a7a05c0516b02e46c3cade1afe1f01035304afc2274f92ed096fd
+      (type 0x2, maxFeePerGas: 513165543, maxPriorityFeePerGas: 122439342)
+  - Broadcasting tx:
+      0x8b7a96e6a073b248c9657e9d39265bd1c2717709f3e243819a06267894c33718
+      (type 0x2, maxFeePerGas: 449130040, maxPriorityFeePerGas: 107701410)
+  - Broadcasting tx:
+      0xabd68b4d502ba5e775e3074ec3b2de87fe46803476d244d7382801e03ff4a4ab
+      (type 0x2, maxFeePerGas: 393085213, maxPriorityFeePerGas: 94261860)
+  - Broadcasting tx:
+      0x38b635eb740c2eae01003416d841e872b560c3c9fc03b87bedaf39f18783ac91
+      (type 0x2, maxFeePerGas: 344004273, maxPriorityFeePerGas: 82499365)
+  - Broadcasting tx:
+      0x1848488b021f69c01c1f99df292b27884262d9e8ec33a2a0f28b3954b9adafaa
+      (type 0x2, maxFeePerGas: 301077492, maxPriorityFeePerGas: 72198427)
+MockUSDC:       0x5fbdb2315678afecb367f032d93f642f64180aa3
+PolicyNFT:      0xe7f1725e7734ce288f8367e1bb143e90bb3f0512
+InsurancePool:  0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
+Insurance:      0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
+Oracle:         0xdc64a140aa3e981100a9beca4e685f962f0cf6c9
+PolicyMarket:   0x5fc8d32690cc91d4c39d9d3abcbd16989f875707
+
+
+📝 Updated TypeScript contract definition file on ../nextjs/contracts/deployedContracts.ts
