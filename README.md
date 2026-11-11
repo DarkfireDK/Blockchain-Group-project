@@ -1,5 +1,7 @@
 # 航班延误险 DApp
 
+项目仓库：https://github.com/DarkfireDK/Blockchain-Group-project
+
 基于 Scaffold-ETH 2 构建的去中心化航班延误保险应用。用户使用 USDC 购买航班延误险并获得保单 NFT；流动性提供者（LP）向保险资金池存入 USDC；Oracle 报告航班延误后，合约按保单条款自动处理赔付。保单 NFT 也可在二级市场转让。
 
 > 本项目为开发与演示原型。`MockUSDC` 仅供本地测试，Oracle 报告依赖授权账户；上线前请完成安全审计并接入可信航班数据源。
@@ -115,6 +117,6 @@ LP净值扣除未结算保费，提款另受保额与退款准备金约束。管
 `pip install -r requirements-security.txt` 后运行 `python scripts/security_scan.py`（先完成编译）。扫描6份业务源码、101个检测器，保留11项告警，逐条核对见 `docs/security-review.md`；不等于第三方审计。CI配置会检查编译、测试、前后端类型、前端构建与扫描，尚未在GitHub上执行。
 
 ## 部署状态
-本地部署及浏览器购保/挂牌流程已验证。Sepolia及源码验证尚未执行，GitHub更新尚未推送。具体步骤与外部条件见 `docs/deployment.md`。
+本地部署及浏览器购保/挂牌流程已验证。源码已上传个人仓库，保持私有；Sepolia及源码验证仍待本机签名操作。具体步骤见 `docs/deployment.md`。
 
 
