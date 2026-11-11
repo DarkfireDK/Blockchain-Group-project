@@ -18,10 +18,10 @@ jobs:
       - run: yarn compile
       - run: yarn test
       - run: yarn hardhat:check-types
-      - run: yarn next:check-types
       - run: yarn workspace @se-2/nextjs exec next build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+      - run: yarn next:check-types
       - run: pip install -r requirements-security.txt
       - run: python scripts/security_scan.py
       - uses: actions/upload-artifact@v4
@@ -29,3 +29,4 @@ jobs:
         with:
           name: security-evidence
           path: docs/evidence/slither.*
+
