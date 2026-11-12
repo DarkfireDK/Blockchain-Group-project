@@ -1,0 +1,32 @@
+No contracts to compile
+Running Mocha tests
+
+
+  Flight delay insurance
+    √ mints policy and reserves coverage and refundable premium (635ms)
+    √ pays qualifying claim once and burns policy (44ms)
+    √ rejects unauthorized reports and direct claim callbacks
+    √ rolls back below-threshold reports and allows later qualifying report
+    √ refunds at expiry once and rejects early expiry (39ms)
+    √ does not allow LP withdrawal to consume reserved funds
+    √ requires premium authorization atomically
+    √ transfers policy on sale, charges fee and pays the new owner (45ms)
+    √ rejects a cancelled listing
+    √ enforces tariff, amount bounds and consistent flight dates
+    √ blocks reports before departure and after grace window
+    √ allows a report at the last grace second and forbids competing expiry (66ms)
+    √ snapshots oracle and threshold for existing policies (38ms)
+    √ pauses new policies while preserving refunds
+    √ keeps NAV and fair LP issuance independent of locked coverage
+    √ rejects repriced, transferred and post-departure listings
+    √ conserves reserves across 20 deterministic mixed settlement operations (168ms)
+    √ blocks reentry through the policy NFT safe-mint callback
+    √ rejects unauthorized reserve withdrawals and accounting calls
+    √ rejects zero-share donation dilution without taking the victim deposit (38ms)
+
+
+  20 passing (1s)
+
+
+20 passing (20 mocha)
+

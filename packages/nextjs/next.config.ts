@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.LAUNCHER_SMOKE_TEST === "1" ? ".next-launcher-test" : ".next",
   reactStrictMode: true,
   devIndicators: false,
   typescript: {

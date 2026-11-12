@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ConsoleButton,
   ConsolePanel,
@@ -26,7 +26,13 @@ const parseUsdcInput = (value: string) => {
   }
 };
 
-export const LiquidityPanel = () => {
+export const LiquidityPanel = ({ focusDepositRequest = 0, onBackToCover }: { focusDepositRequest?: number; onBackToCover?: () => void }) => {
+  const depositInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!focusDepositRequest) return;
+    depositInput.current?.focus({ preventScroll: true });
+    depositInput.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusDepositRequest]);
   const { address } = useAccount();
   const [depositAmount, setDepositAmount] = useState("");
   const [sharesToWithdraw, setSharesToWithdraw] = useState("");
@@ -127,9 +133,12 @@ export const LiquidityPanel = () => {
           eyebrow="承保流动性"
           title="提供理赔容量"
           description="存入 USDC 并赚取风险费。保单到期或结算前，对应资金将保持预留状态。"
-          action={<StatusChip label="ERC-20" tone="success" />}
+          action={<div className="flex shrink-0 flex-col items-end gap-2"><StatusChip label="ERC-20" tone="success" />{onBackToCover && <ConsoleButton variant="ghost" onClick={onBackToCover}>← 返回购买保障</ConsoleButton>}</div>}
         />
 
+        <div className="mt-4">
+          <InlineNotice>存入分两步：先授权 USDC，再确认存入。成为流动性提供者后获得份额，也会承担保单赔付风险；存入后可返回购买保障。</InlineNotice>
+        </div>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <div className="rounded-lg border border-white/[0.07] bg-[#090d0f] p-4">
             <div className="flex items-center justify-between">
@@ -195,6 +204,7 @@ export const LiquidityPanel = () => {
             <div className="relative">
               <input
                 id="deposit-usdc"
+                ref={depositInput}
                 type="number"
                 min="0"
                 className={`${inputClassName} pr-14 font-mono`}

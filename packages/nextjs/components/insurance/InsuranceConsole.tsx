@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { LiquidityPanel } from "./LiquidityPanel";
+import { DebugChainTime } from "./DebugChainTime";
 import { MarketPanel } from "./MarketPanel";
 import { OperationsPanel } from "./OperationsPanel";
 import { PolicyPanel, PolicyPortfolio } from "./PolicyPanel";
 import { ConsoleButton, MetricCard, StatusChip, formatUsdc, shortAddress } from "./shared";
 import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { isWalletAuthorizationError } from "~~/utils/scaffold-eth/walletAuthorization";
 import {
   ArrowsRightLeftIcon,
   BanknotesIcon,
@@ -32,6 +35,11 @@ const tabs: { id: TabId; label: string; icon: ReactNode }[] = [
 
 export const InsuranceConsole = () => {
   const [activeTab, setActiveTab] = useState<TabId>("cover");
+  const [depositRequest, setDepositRequest] = useState(0);
+  const openDeposit = () => {
+    setDepositRequest(request => request + 1);
+    setActiveTab("liquidity");
+  };
   const { targetNetwork } = useTargetNetwork();
   const { data: nextPolicyId } = useScaffoldReadContract({
     contractName: "Insurance",
@@ -92,20 +100,22 @@ export const InsuranceConsole = () => {
           <WalletSnapshot />
         </div>
 
+        <DebugChainTime />
         <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricCard
             label="可用承保容量"
             value={formatUsdc(availableLiquidity)}
             unit="USDC"
-            hint="可为新航班保单提供保障"
+            hint={availableLiquidity === 0n ? "资金池尚无可用容量，可由流动性提供者存入资金" : "可为新航班保单提供保障，钱包余额需存入资金池才会计入"}
             icon={<Squares2X2Icon className="h-4 w-4" />}
             tone="accent"
+            action={<ConsoleButton onClick={openDeposit} className="w-full">存入资金 →</ConsoleButton>}
           />
           <MetricCard
             label="生效中保额"
             value={formatUsdc(lockedCoverage)}
             unit="USDC"
-            hint="为有效保单预留的理赔资金"
+            hint="为尚未结算的保单预留的理赔资金"
             icon={<ShieldCheckIcon className="h-4 w-4" />}
           />
           <MetricCard
@@ -150,13 +160,11 @@ export const InsuranceConsole = () => {
         </div>
 
         <div className="mt-5">
-          {activeTab === "cover" && (
-            <>
-              <PolicyPanel policyCount={policyCount} />
+          <div hidden={activeTab !== "cover"}>
+              <PolicyPanel policyCount={policyCount} onDeposit={openDeposit} />
               <PolicyPortfolio policyCount={policyCount} />
-            </>
-          )}
-          {activeTab === "liquidity" && <LiquidityPanel />}
+          </div>
+          {activeTab === "liquidity" && <LiquidityPanel focusDepositRequest={depositRequest} onBackToCover={() => setActiveTab("cover")} />}
           {activeTab === "market" && <MarketPanel />}
           {activeTab === "operations" && <OperationsPanel />}
         </div>
@@ -167,6 +175,17 @@ export const InsuranceConsole = () => {
 
 const WalletSnapshot = () => {
   const { address } = useAccount();
+  const { disconnectAsync } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
+  const [walletError, setWalletError] = useState("");
+  const [mintPending, setMintPending] = useState(false);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => { setWalletError(""); }, [address]);
+  const reconnect = async () => {
+    try { await disconnectAsync(); openConnectModal?.(); }
+    catch { setWalletError("请点击右上角钱包，断开后重新连接。"); }
+  };
   const usdcWrite = useScaffoldWriteContract({ contractName: "MockUSDC" });
   const { data: balance } = useScaffoldReadContract({
     contractName: "MockUSDC",
@@ -188,16 +207,21 @@ const WalletSnapshot = () => {
   });
 
   const handleMint = async () => {
-    if (!address) return;
+    if (!address || mintPending) return;
+    setWalletError("");
+    setMintPending(true);
     try {
-      await usdcWrite.writeContractAsync({
+      const hash = await usdcWrite.writeContractAsync({
         functionName: "mint",
         args: [address, parseUnits("1000", 6)],
       });
-      notification.success("已领取 1,000 测试 USDC");
-    } catch {
-      // Error feedback is handled by the scaffold hook.
-    }
+      if (hash) notification.success("已领取 1,000 测试 USDC");
+    } catch (error) {
+      const message = isWalletAuthorizationError(error)
+        ? "钱包未授权当前账户。请解锁MetaMask，在已连接的网站中确认当前账户，或点击下方重新连接。"
+        : "领取未完成。请查看钱包提示，并确认网络及测试ETH余额。";
+      setWalletError(message);
+    } finally { setMintPending(false); }
   };
 
   if (!address) {
@@ -222,11 +246,16 @@ const WalletSnapshot = () => {
         <ConsoleButton
           variant="ghost"
           onClick={handleMint}
-          busy={usdcWrite.isMining}
+          busy={usdcWrite.isMining || mintPending}
           icon={<BeakerIcon className="h-4 w-4" />}
         >
           领取测试 USDC
         </ConsoleButton>
+      </div>
+      <div className="mt-3 text-[11px] text-[#aeb9b7]">
+        <p className="my-1">授权的网站：{origin}（localhost 与 127.0.0.1 的授权不共用）</p>
+        {walletError && <p role="alert" className="my-2 text-[#f4c66a]">{walletError}</p>}
+        <button type="button" onClick={reconnect} disabled={mintPending} className="underline disabled:opacity-40">重新连接钱包</button>
       </div>
       <div className="mt-3 grid grid-cols-3 divide-x divide-white/[0.07] border-t border-white/[0.06] pt-3">
         <WalletValue label="USDC" value={formatUsdc(balance)} />

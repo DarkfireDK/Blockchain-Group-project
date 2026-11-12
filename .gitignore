@@ -24,4 +24,12 @@ dist
 
 .venv-security/
 .security-build/
+.local-run/
+packages/nextjs/.next-launcher-test/
 docs/evidence/local-chain.log
+
+# Generated document QA previews and extracted course handout
+deliverables/slide-previews/
+deliverables/*_overview.png
+deliverables/*-review.png
+deliverables/assignment-requirements.txt

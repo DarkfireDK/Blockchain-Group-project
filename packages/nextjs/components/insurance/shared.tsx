@@ -109,6 +109,7 @@ export function MetricCard({
   hint,
   icon,
   tone = "default",
+  action,
 }: {
   label: string;
   value: string;
@@ -116,6 +117,7 @@ export function MetricCard({
   hint: string;
   icon?: ReactNode;
   tone?: "default" | "accent" | "warning";
+  action?: ReactNode;
 }) {
   const iconTone =
     tone === "accent"
@@ -137,6 +139,7 @@ export function MetricCard({
         {unit && <span className="shrink-0 text-[11px] font-semibold text-[#667579]">{unit}</span>}
       </div>
       <p className="mb-0 mt-2 break-words text-[11px] leading-4 text-[#657276]">{hint}</p>
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }

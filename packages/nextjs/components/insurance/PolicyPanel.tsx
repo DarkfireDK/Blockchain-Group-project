@@ -1,4 +1,5 @@
 "use client";
+import { useInsuranceChainClock } from "~~/hooks/scaffold-eth/useInsuranceChainClock";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -14,13 +15,14 @@ import {
   formatUsdc,
   inputClassName,
   labelClassName,
-  policyStatusLabel,
   toDateTimeLocal,
   toUnixTimestamp,
 } from "./shared";
 import type { Address } from "viem";
 import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
+import { policyTermsError } from "~~/utils/scaffold-eth/policyTerms";
+import { policyLifecycle } from "~~/utils/scaffold-eth/policyLifecycle";
 import {
   CalendarDaysIcon,
   ClockIcon,
@@ -31,6 +33,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { useScaffoldContract, useScaffoldEventHistory, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
+import { getBlockExplorerTxLink } from "~~/utils/scaffold-eth";
+import { useTargetNetwork } from "~~/hooks/scaffold-eth";
 
 const parseUsdcInput = (value: string) => {
   try {
@@ -40,8 +44,11 @@ const parseUsdcInput = (value: string) => {
   }
 };
 
-export const PolicyPanel = ({ policyCount }: { policyCount: number }) => {
+export const PolicyPanel = ({ policyCount, onDeposit }: { policyCount: number; onDeposit: () => void }) => {
   const { address } = useAccount();
+  const { targetNetwork } = useTargetNetwork();
+  const { data: latestBlock } = useInsuranceChainClock();
+  const publicClient = usePublicClient({ chainId: targetNetwork.id });
   const [flightNumber, setFlightNumber] = useState("");
   const [departureDate, setDepartureDate] = useState("");
   const [coverageEnd, setCoverageEnd] = useState("");
@@ -73,11 +80,11 @@ export const PolicyPanel = ({ policyCount }: { policyCount: number }) => {
   });
 
   useEffect(() => {
-    const now = new Date();
-    setDepartureDate(toDateTimeLocal(new Date(now.getTime() + 24 * 60 * 60 * 1000)));
-    setCoverageEnd(toDateTimeLocal(new Date(now.getTime() + 48 * 60 * 60 * 1000)));
-
-  }, []);
+    if (!latestBlock) return;
+    const timestamp = Number(latestBlock.timestamp) * 1000;
+    setDepartureDate(value => value || toDateTimeLocal(new Date(timestamp + 86400000)));
+    setCoverageEnd(value => value || toDateTimeLocal(new Date(timestamp + 172800000)));
+  }, [latestBlock]);
 
   const coverageAmountWei = parseUsdcInput(coverageAmount);
   const premiumWei = (coverageAmountWei + 49n) / 50n;
@@ -87,12 +94,8 @@ export const PolicyPanel = ({ policyCount }: { policyCount: number }) => {
   const needsApproval = (allowance ?? 0n) < premiumWei;
   const hasEnoughBalance = (balance ?? 0n) >= premiumWei;
   const hasPoolCapacity = (availableLiquidity ?? 0n) >= coverageAmountWei;
-  const isValid =
-    flightNumber.trim().length >= 2 &&
-    coverageAmountWei >= 10_000_000n && coverageAmountWei <= 5_000_000_000n &&
-    premiumWei > 0n &&
-    Boolean(toUnixTimestamp(coverageEnd)) &&
-    Boolean(toUnixTimestamp(departureDate));
+  const validationError = policyTermsError({flight: flightNumber, coverage: coverageAmountWei, departure: toUnixTimestamp(departureDate), end: toUnixTimestamp(coverageEnd), chainTime: latestBlock?.timestamp});
+  const isValid = !validationError && /^\d+(\.\d{1,6})?$/.test(coverageAmount);
 
   const handleApprove = async () => {
     if (!poolAddress) return;
@@ -114,19 +117,16 @@ export const PolicyPanel = ({ policyCount }: { policyCount: number }) => {
     if (!departure || !end) return;
 
     const start = departure;
-    if (start <= BigInt(Math.floor(Date.now() / 1000))) return notification.error("请选择未来的起飞时间");
-    if (end <= start) {
-      notification.error("保障结束时间需晚于当前时间至少两分钟");
-      return;
-    }
-
     try {
-      await insuranceWrite.writeContractAsync({
+      if (!publicClient) return notification.error("无法读取链上时间，请确认网络连接。");
+      const freshBlock = await publicClient.getBlock({blockTag:"latest"});
+      const error = policyTermsError({flight:flightNumber,coverage:coverageAmountWei,departure,end,chainTime:freshBlock.timestamp});
+      if (error) return notification.error(error);
+      const hash = await insuranceWrite.writeContractAsync({
         functionName: "purchasePolicy",
         args: [flightNumber.trim().toUpperCase(), departure, start, end, coverageAmountWei, premiumWei, refundableWei],
       });
-      notification.success("航班保单已铸造为 NFT");
-      setFlightNumber("");
+      if (hash) { notification.success("航班保单已铸造为 NFT"); setFlightNumber(""); }
     } catch {
       // Error feedback is handled by useScaffoldWriteContract.
     }
@@ -250,14 +250,21 @@ export const PolicyPanel = ({ policyCount }: { policyCount: number }) => {
           </div>
         </div>
 
-        {!hasPoolCapacity && coverageAmountWei > 0n && (
+        {availableLiquidity !== undefined && !hasPoolCapacity && coverageAmountWei > 0n && (
           <div className="mt-4">
             <InlineNotice tone="warning">
-              当前资金池无法承保此保额，可用容量为 {formatUsdc(availableLiquidity)} USDC。
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="m-0">当前资金池无法承保此保额，可用容量为 {formatUsdc(availableLiquidity)} USDC。</p>
+                  <p className="mb-0 mt-1 text-xs">钱包余额与资金池容量不同。你可以降低保额，或作为流动性提供者先存入资金。</p>
+                </div>
+                <ConsoleButton onClick={onDeposit}>前往存入资金 →</ConsoleButton>
+              </div>
             </InlineNotice>
           </div>
         )}
 
+        {validationError && <p role="status" className="mt-4 text-xs text-[#f4c66a]">{validationError}</p>}
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="m-0 text-[11px] text-[#6f7c80]">
             钱包余额：<span className="font-mono text-[#aeb9b8]">{formatUsdc(balance)} USDC</span>
@@ -350,6 +357,33 @@ const SnapshotRow = ({ label, value }: { label: string; value: string }) => (
 
 export const PolicyPortfolio = ({ policyCount }: { policyCount: number }) => {
   const { address } = useAccount();
+  const [view, setView] = useState<"active" | "ended">("active");
+  const [historyLimit, setHistoryLimit] = useState(12);
+  useEffect(() => { setHistoryLimit(12); }, [address]);
+  const claims = useScaffoldEventHistory({
+    contractName: "Insurance", eventName: "ClaimProcessed",
+    filters: address ? { beneficiary: address } : undefined,
+    enabled: Boolean(address), watch: true, blockData: true,
+  });
+  const refunds = useScaffoldEventHistory({
+    contractName: "Insurance", eventName: "PolicyExpired",
+    filters: address ? { beneficiary: address } : undefined,
+    enabled: Boolean(address), watch: true, blockData: true,
+  });
+  const endedPolicies = useMemo(() => {
+    if (!address) return [];
+    const records = [
+      ...(claims.data ?? []).filter(event => event.args.beneficiary?.toLowerCase() === address.toLowerCase()).map(event => ({
+        id: event.args.policyId!, kind: "claim" as const, amount: event.args.amount!,
+        transaction: event.transactionHash!, block: event.blockNumber ?? 0n, timestamp: event.blockData?.timestamp,
+      })),
+      ...(refunds.data ?? []).filter(event => event.args.beneficiary?.toLowerCase() === address.toLowerCase()).map(event => ({
+        id: event.args.policyId!, kind: "refund" as const, amount: event.args.refundAmount!,
+        transaction: event.transactionHash!, block: event.blockNumber ?? 0n, timestamp: event.blockData?.timestamp,
+      })),
+    ];
+    return records.sort((a,b) => a.block > b.block ? -1 : a.block < b.block ? 1 : 0);
+  }, [address, claims.data, refunds.data]);
   const { data: purchaseEvents } = useScaffoldEventHistory({
     contractName: "Insurance",
     eventName: "PolicyPurchased",
@@ -380,13 +414,24 @@ export const PolicyPortfolio = ({ policyCount }: { policyCount: number }) => {
     <ConsolePanel className="mt-5 p-5 sm:p-6">
       <SectionHeading
         eyebrow="我的保障"
-        title="我的有效保单"
-        description="每张保单都是可转让的 NFT。仅起飞前可在市场转售，保障结束后24小时可发起到期结算。"
+        title="我的保单"
+        description="保单按链上时间显示待起飞、已起飞、保障已结束或待退款。到期不会自动转账，完成赔付或退款后进入“已结束”。"
         action={<StatusChip label={`累计签发 ${policyCount} 张`} />}
       />
+      <div className="mt-4 flex gap-2" role="tablist" aria-label="我的保单状态">
+        <button type="button" role="tab" aria-selected={view === "active"} onClick={() => setView("active")} className={`rounded-lg px-4 py-2 text-xs ${view === "active" ? "bg-[#87f5d6]/10 text-[#87f5d6]" : "text-[#839095]"}`}>未结算保单</button>
+        <button type="button" role="tab" aria-selected={view === "ended"} onClick={() => setView("ended")} className={`rounded-lg px-4 py-2 text-xs ${view === "ended" ? "bg-[#87f5d6]/10 text-[#87f5d6]" : "text-[#839095]"}`}>已结束{endedPolicies.length > 0 ? `（${endedPolicies.length}）` : ""}</button>
+      </div>
       <div className="mt-5">
         {!address ? (
           <EmptyState title="连接钱包" description="连接后，你的保单 NFT 与结算操作将显示在这里。" />
+        ) : view === "ended" ? (
+          <>
+            <p className="text-xs leading-6 text-[#839095]">仅显示赔付或退款给当前账户的记录。转售后的结算由新持有人查看；NFT销毁后，链上结算记录仍然保留。</p>
+            {claims.error || refunds.error ? <InlineNotice tone="warning">历史记录读取失败，请确认本地链仍在运行并刷新页面。</InlineNotice> : null}
+            {endedPolicies.length === 0 ? <EmptyState title={claims.isLoading || refunds.isLoading ? "正在读取结算记录" : "暂无已结束保单"} description="完成延误赔付或到期退款后，这里会显示结果。" /> : endedPolicies.slice(0,historyLimit).map(record => <SettledPolicyRow key={`${record.kind}-${record.id}`} {...record} />)}
+            {endedPolicies.length > historyLimit && <ConsoleButton variant="ghost" onClick={() => setHistoryLimit(limit => limit + 12)}>显示更多结算记录</ConsoleButton>}
+          </>
         ) : policyIds.length === 0 ? (
           <EmptyState title="暂无保单" description="在上方创建第一张航班保障，铸造后将显示在这里。" />
         ) : (
@@ -397,10 +442,33 @@ export const PolicyPortfolio = ({ policyCount }: { policyCount: number }) => {
   );
 };
 
+const SettledPolicyRow = ({ id, kind, amount, transaction, timestamp }: { id: bigint; kind: "claim" | "refund"; amount: bigint; transaction: string; timestamp?: bigint }) => {
+  const { targetNetwork } = useTargetNetwork();
+  const { data: policy } = useScaffoldReadContract({contractName:"PolicyNFT", functionName:"getPolicy", args:[id]});
+  const link = getBlockExplorerTxLink(targetNetwork.id, transaction);
+  return (
+    <article className="flex flex-col gap-4 border-t border-white/[0.07] py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <strong className="font-mono text-sm text-[#edf3f1]">{policy?.flightNumber || `保单 #${id}`}</strong>
+          <StatusChip label={kind === "claim" ? "已理赔" : "已退款"} tone={kind === "claim" ? "success" : "neutral"} />
+          <span className="text-xs text-[#839095]">#{id.toString()}</span>
+        </div>
+        <p className="mb-0 mt-2 text-xs text-[#839095]">{timestamp ? `结算于 ${formatDateTime(timestamp)}` : "链上结算已完成"} · 保单NFT已销毁，记录保留</p>
+      </div>
+      <div className="sm:text-right">
+        <p className="m-0 text-sm text-[#edf3f1]">{kind === "claim" ? "获得赔付" : "退回保费"} <strong className="font-mono">{formatUsdc(amount, 6)} USDC</strong></p>
+        {link && <a href={link} className="mt-2 inline-block text-xs text-[#87f5d6] underline">查看结算交易 →</a>}
+      </div>
+    </article>
+  );
+};
+
 const PolicyRow = ({ policyId }: { policyId: bigint }) => {
   const { address } = useAccount();
+  const { data: latestBlock } = useInsuranceChainClock();
   const [listPrice, setListPrice] = useState("");
-  const [currentTimestamp, setCurrentTimestamp] = useState(0n);
+  const currentTimestamp = latestBlock?.timestamp;
   const insuranceWrite = useScaffoldWriteContract({ contractName: "Insurance" });
   const marketWrite = useScaffoldWriteContract({ contractName: "PolicyMarket" });
   const nftWrite = useScaffoldWriteContract({ contractName: "PolicyNFT" });
@@ -429,26 +497,20 @@ const PolicyRow = ({ policyId }: { policyId: bigint }) => {
       : (rawListing as unknown as { seller: Address; price: bigint; active: boolean })
     : undefined;
 
-  useEffect(() => {
-    const updateTimestamp = () => setCurrentTimestamp(BigInt(Math.floor(Date.now() / 1000)));
-    updateTimestamp();
-    const interval = window.setInterval(updateTimestamp, 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
-
   if (!policy || policy.status !== 1 || !address || owner?.toLowerCase() !== address.toLowerCase()) return null;
 
-  const canExpire = currentTimestamp > 0n && currentTimestamp > policy.coverageEnd + 86400n;
+  const lifecycle = policyLifecycle(policy,currentTimestamp);
   const handleExpire = async () => {
     try {
-      await insuranceWrite.writeContractAsync({ functionName: "expirePolicy", args: [policyId] });
-      notification.success("到期保单已结算");
+      const hash=await insuranceWrite.writeContractAsync({ functionName: "expirePolicy", args: [policyId] });
+      if(hash) notification.success("到期保单已结算");
     } catch {
       // Transaction errors are already surfaced by the scaffold hook.
     }
   };
 
   const handleList = async () => {
+    if(!lifecycle.canTransfer) return notification.error("只有起飞前的保单可以转让。");
     const price = parseUsdcInput(listPrice);
     if (price === 0n) {
       notification.error("挂牌价格必须大于零");
@@ -486,10 +548,12 @@ const PolicyRow = ({ policyId }: { policyId: bigint }) => {
               <p className="m-0 truncate font-mono text-sm font-semibold tracking-[0.05em] text-[#edf3f1]">
                 {policy.flightNumber}
               </p>
-              <StatusChip label={policyStatusLabel(policy.status)} tone="success" />
+              <StatusChip label={lifecycle.label} tone={lifecycle.tone} />
               <span className="font-mono text-[10px] text-[#5f6c70]">#{policyId.toString()}</span>
             </div>
-            <p className="mb-0 mt-1 text-[11px] text-[#6f7c80]">结束于 {formatDateTime(policy.coverageEnd)}</p>
+            <p className="mb-0 mt-1 text-[11px] text-[#6f7c80]">起飞 {formatDateTime(policy.departureDate)} · 保障结束 {formatDateTime(policy.coverageEnd)}</p>
+            <p className="mb-0 mt-1 max-w-lg text-xs leading-5 text-[#aeb9b7]">{lifecycle.description}</p>
+            {currentTimestamp !== undefined && currentTimestamp >= policy.coverageEnd && <p className="mb-0 mt-1 text-[11px] text-[#6f7c80]">报告宽限期截止：{formatDateTime(policy.coverageEnd + 86400n)}（严格晚于此时间可退款）</p>}
           </div>
         </div>
 
@@ -509,7 +573,7 @@ const PolicyRow = ({ policyId }: { policyId: bigint }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {listing?.active ? (
+          {!lifecycle.canTransfer ? <StatusChip label="无法转让" tone="neutral" /> : listing?.active ? (
             <>
               <StatusChip label={`已挂牌 ${formatUsdc(listing.price)} USDC`} tone="warning" />
               <ConsoleButton variant="ghost" onClick={handleCancel} busy={marketWrite.isMining}>
@@ -528,14 +592,14 @@ const PolicyRow = ({ policyId }: { policyId: bigint }) => {
                   onChange={event => setListPrice(event.target.value)}
                 />
               </div>
-              <ConsoleButton onClick={handleList} busy={marketWrite.isMining} disabled={!listPrice || currentTimestamp >= policy.departureDate}>
+              <ConsoleButton onClick={handleList} busy={marketWrite.isMining || nftWrite.isMining} disabled={!listPrice}>
                 授权并挂牌
               </ConsoleButton>
             </div>
           )}
-          {canExpire && (
+          {lifecycle.canRefund && (
             <ConsoleButton variant="secondary" onClick={handleExpire} busy={insuranceWrite.isMining}>
-              结算到期
+              领取到期退款
             </ConsoleButton>
           )}
         </div>

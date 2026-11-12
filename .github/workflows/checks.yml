@@ -29,4 +29,3 @@ jobs:
         with:
           name: security-evidence
           path: docs/evidence/slither.*
-

@@ -1,0 +1,12 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {policyTermsError} from "../../nextjs/utils/scaffold-eth/policyTerms.js";
+const terms={flight:"CX528",coverage:500_000000n,chainTime:1000000n,departure:1003600n,end:1007200n};
+test("valid future policy",()=>assert.equal(policyTermsError(terms),""));
+test("simulated chain ahead of computer dates",()=>assert.match(policyTermsError({...terms,chainTime:2000000n}),/链上时间/));
+test("departure exactly at chain time is rejected",()=>assert.match(policyTermsError({...terms,departure:terms.chainTime}),/链上时间/));
+test("equal end and departure is rejected",()=>assert.match(policyTermsError({...terms,end:terms.departure}),/晚于起飞/));
+test("seven days allowed, one extra second rejected",()=>{assert.equal(policyTermsError({...terms,end:terms.departure+604800n}),"");assert.match(policyTermsError({...terms,end:terms.departure+604801n}),/7天/);});
+test("missing and long flight identifiers rejected",()=>{assert.match(policyTermsError({...terms,flight:""}),/航班号/);assert.match(policyTermsError({...terms,flight:"X".repeat(13)}),/航班号/);});
+test("coverage limits enforced",()=>{assert.match(policyTermsError({...terms,coverage:1n}),/保额/);assert.match(policyTermsError({...terms,coverage:5001_000000n}),/保额/);});
+test("waits for a chain timestamp",()=>assert.match(policyTermsError({...terms,chainTime:undefined}),/读取链上时间/));

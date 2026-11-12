@@ -7,6 +7,7 @@ import { WriteContractVariables } from "wagmi/query";
 import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import { useDeployedContractInfo, useTransactor } from "~~/hooks/scaffold-eth";
 import { AllowedChainIds, notification } from "~~/utils/scaffold-eth";
+import { assertWalletAccount } from "~~/utils/scaffold-eth/walletAuthorization";
 import {
   ContractAbi,
   ContractName,
@@ -71,7 +72,7 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
     }
   }, [configOrName]);
 
-  const { chain: accountChain } = useAccount();
+  const { chain: accountChain, address: accountAddress, connector } = useAccount();
   const writeTx = useTransactor();
   const [isMining, setIsMining] = useState(false);
 
@@ -107,12 +108,18 @@ export function useScaffoldWriteContract<TContractName extends ContractName>(
 
     try {
       setIsMining(true);
+      if (!accountAddress || !connector) throw new Error("请先连接钱包");
+      assertWalletAccount(accountAddress, await connector.getAccounts());
+      if (await connector.getChainId() !== selectedNetwork.id) throw new Error(`请在钱包中切换到 ${selectedNetwork.name}`);
       const { blockConfirmations, onBlockConfirmation, ...mutateOptions } = options || {};
 
       const writeContractObject = {
         abi: deployedContractData.abi as Abi,
         address: deployedContractData.address,
         ...variables,
+        account: accountAddress,
+        chainId: selectedNetwork.id,
+        connector,
       } as WriteContractVariables<Abi, string, any[], Config, number>;
 
       if (!finalConfig?.disableSimulate) {

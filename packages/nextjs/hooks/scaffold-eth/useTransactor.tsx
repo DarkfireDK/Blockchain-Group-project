@@ -55,7 +55,10 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
     try {
       chainId = await walletClient.getChainId();
       // Get full transaction from public client
-      const publicClient = getPublicClient(wagmiConfig);
+      const transactionChain = wagmiConfig.chains.find(chain => chain.id === chainId);
+      if (!transactionChain) throw new Error("钱包网络不受当前项目支持");
+      const publicClient = getPublicClient(wagmiConfig, { chainId: transactionChain.id });
+      if (!publicClient) throw new Error("当前网络的交易查询服务不可用");
 
       notificationId = notification.loading(<TxnNotification message="Awaiting for user confirmation" />);
       if (typeof tx === "function") {

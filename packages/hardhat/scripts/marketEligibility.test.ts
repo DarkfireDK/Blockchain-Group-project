@@ -1,0 +1,10 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {isMarketPolicyTradable} from "../../nextjs/utils/scaffold-eth/marketEligibility.js";
+const policy={active:true,status:1,departure:200n,chainTime:100n,seller:"0xAbC",owner:"0xabc"};
+test("shows an active pre-departure listing held by seller",()=>assert.equal(isMarketPolicyTradable(policy),true));
+test("hides claimed policy despite active listing flag",()=>assert.equal(isMarketPolicyTradable({...policy,status:2,owner:undefined}),false));
+test("hides refunded policy despite active listing flag",()=>assert.equal(isMarketPolicyTradable({...policy,status:3,owner:undefined}),false));
+test("hides a listing at departure and after departure",()=>{assert.equal(isMarketPolicyTradable({...policy,chainTime:200n}),false);assert.equal(isMarketPolicyTradable({...policy,chainTime:201n}),false);});
+test("hides stale ownership and missing owner",()=>{assert.equal(isMarketPolicyTradable({...policy,owner:"0xdef"}),false);assert.equal(isMarketPolicyTradable({...policy,owner:undefined}),false);});
+test("hides cancelled and nonexistent policies",()=>{assert.equal(isMarketPolicyTradable({...policy,active:false}),false);assert.equal(isMarketPolicyTradable({...policy,status:0}),false);});
